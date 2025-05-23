@@ -53,6 +53,7 @@ const main = async () => {
   PROVEEDOR.prov = adapterProvider
 
 await Inicializar()
+  console.log('🚦 [app.js] BOT.PRODUCTOS después de Inicializar:', BOT.PRODUCTOS)
    console.log('🤖 Creando bot')
   const bot = await createBot({
     flow: adapterFlow,
