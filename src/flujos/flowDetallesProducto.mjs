@@ -6,6 +6,12 @@ import { Esperar } from '../funciones/tiempo.mjs'
 
 export const flowDetallesProducto = addKeyword([]).addAction(
   async (ctx, { state, flowDynamic, endFlow }) => {
+     // 🔒 Chequeo de flag PRODUCTOS: si está desactivado, termina el flujo inmediatamente
+    if (!BOT.PRODUCTOS) {
+      console.log('🛑 [flowDetallesProducto] Flag PRODUCTOS está en FALSE, saltando todo el flujo de detalles.')
+      await flowDynamic('Esta funcionalidad no está disponible en este momento.')
+      return endFlow()
+    }
     const userMsg = ctx.body?.toLowerCase()?.trim()
     const { productosMostrados = [] } = state.getMyState() || {}
 
