@@ -1,7 +1,18 @@
 // src/funciones/helpers/cacheProductos.mjs
+import { BOT } from '../../config/bot.mjs' // ← Añade esta línea arriba
 import { obtenerTodosLosProductosAppSheet } from './leerProductosAppSheet.mjs'
 
 export async function cargarProductosAlState(state) {
+  // 🔒 Chequeo de flag PRODUCTOS: si está desactivado, no cargar productos
+  if (!BOT.PRODUCTOS) {
+    console.log('🛑 [cacheProductos] Flag PRODUCTOS está en FALSE, no se cargan productos.')
+    await state.update({
+      _productosFull: [],
+      __productosCargados: true,
+    })
+    return []
+  }
+
   const yaCargado = state.get('__productosCargados')
   let productos = state.get('_productosFull')
 
@@ -20,3 +31,4 @@ export async function cargarProductosAlState(state) {
 
   return productos
 }
+
