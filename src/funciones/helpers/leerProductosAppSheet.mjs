@@ -4,6 +4,9 @@ import { APPSHEETCONFIG, BOT } from '../../config/bot.mjs'
 
 export async function obtenerTodosLosProductosAppSheet() {
   try {
+    // 👉 Aquí agregamos el log sugerido
+    console.log('🚦 [leerProductosAppSheet] BOT.PRODUCTOS al intentar cargar:', BOT.PRODUCTOS);
+
     // 🔒 Chequeo de flag PRODUCTOS: si está desactivado, no cargar productos
     if (!BOT.PRODUCTOS) {
       console.log('🛑 [leerProductosAppSheet] Flag PRODUCTOS está en FALSE, no se solicitan productos a AppSheet.')
