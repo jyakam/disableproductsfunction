@@ -43,6 +43,17 @@ export const flowIAinfo = addKeyword(EVENTS.WELCOME)
     console.log('📩 [IAINFO] Mensaje recibido de:', phone)
     console.log(`🔍 [IAINFO] Estado inicial de la caché: ${getCacheContactos().length} contactos`)
 
+    // 🔒 Chequeo de flag PRODUCTOS: si está desactivado, saltar toda la lógica de productos
+    if (!BOT.PRODUCTOS) {
+      console.log('🛑 [IAINFO] Flag PRODUCTOS está en FALSE, saltando lógica de productos.')
+      // Puedes dejar que la IA responda con base de conocimiento o seguir flujo normal sin productos
+      const res = await EnviarIA(ctx.body, ENUNGUIONES.INFO, {
+        ctx, flowDynamic, endFlow, gotoFlow, provider, state, promptExtra: ''
+      }, { esClienteNuevo: false, contacto: {} })
+      await Responder(res, ctx, flowDynamic, state)
+      return
+    }
+
     let contacto = getContactoByTelefono(phone)
     if (!contacto) {
       console.log(`🔄 [IAINFO] Contacto no encontrado, intentando recargar caché`)
@@ -158,6 +169,16 @@ export const flowIAinfo = addKeyword(EVENTS.WELCOME)
     const { flowDynamic, endFlow, gotoFlow, provider, state } = tools
     const phone = ctx.from.split('@')[0]
     const message = ctx.body.trim()
+
+    // 🔒 Chequeo de flag PRODUCTOS: si está desactivado, saltar toda la lógica de productos
+    if (!BOT.PRODUCTOS) {
+      console.log('🛑 [IAINFO][capture] Flag PRODUCTOS está en FALSE, saltando lógica de productos.')
+      const res = await EnviarIA(message, ENUNGUIONES.INFO, {
+        ctx, flowDynamic, endFlow, gotoFlow, provider, state, promptExtra: ''
+      }, { esClienteNuevo: false, contacto: {} })
+      await Responder(res, ctx, flowDynamic, state)
+      return tools.fallBack()
+    }
 
     let contacto = getContactoByTelefono(phone)
     const datos = {}
