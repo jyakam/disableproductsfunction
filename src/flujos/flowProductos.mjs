@@ -9,6 +9,12 @@ import { BOT } from '../config/bot.mjs'
 
 export const flowProductos = addKeyword(['🧩 MostrarProductos', '🧩 MostrarDetalles']).addAction(
   async (ctx, { flowDynamic, endFlow, state }) => {
+        // 🔒 Chequeo de flag PRODUCTOS: si está desactivado, termina el flujo inmediatamente
+    if (!BOT.PRODUCTOS) {
+      console.log('🛑 [flowProductos] Flag PRODUCTOS está en FALSE, saltando todo el flujo de productos.')
+      await flowDynamic('Esta funcionalidad no está disponible en este momento.')
+      return endFlow()
+    }
     try {
       const estado = state.getMyState() || {}
       const consulta = estado.ultimaConsulta || ctx.body?.toLowerCase()?.trim() || ''
