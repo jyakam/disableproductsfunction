@@ -46,6 +46,17 @@ export const flowIAImagen = addKeyword(EVENTS.MEDIA)
     const phone = ctx.from.split('@')[0]
     const contacto = CONTACTOS.LISTA_CONTACTOS.find(c => c.TELEFONO === phone)
 
+        // 🔒 Chequeo de flag PRODUCTOS: si está desactivado, salta todo el flujo especial de productos e imágenes
+    if (!BOT.PRODUCTOS) {
+      console.log('🛑 [IAIMAGEN] Flag PRODUCTOS está en FALSE, saltando lógica de productos e imágenes.')
+      // Opcionalmente puedes dejar un mensaje especial si quieres, o simplemente responder con la IA básica:
+      const res = await EnviarIA(ctx.body, ENUNGUIONES.INFO, {
+        ctx, flowDynamic, endFlow, gotoFlow, provider, state, promptExtra: ''
+      }, { esClienteNuevo: false, contacto: {} })
+      await flowDynamic(res.respuesta || 'Mensaje recibido.')
+      return endFlow()
+    }
+
     console.log('📩 [IAIMAGEN] Mensaje de imagen recibido de:', phone)
     if (!BOT.RESPONDER_NUEVOS && !contacto) return endFlow()
     if (!contacto) {
