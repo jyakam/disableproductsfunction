@@ -138,8 +138,15 @@ export async function ActualizarBot() {
       // 🧩 Configuración dinámica del nombre de hoja de productos
       BOT.PAG_PRODUCTOS = bot.PAG_PRODUCTOS || 'PRODUCTOS'
 
-      // ✅ CARGA DEL FLAG DE PRODUCTOS
-      BOT.PRODUCTOS = (typeof bot.PRODUCTOS === "boolean") ? bot.PRODUCTOS : (String(bot.PRODUCTOS).toLowerCase() === "true");
+     // ✅ CARGA DEL FLAG DE PRODUCTOS
+if (typeof bot.PRODUCTOS === "boolean") {
+  BOT.PRODUCTOS = bot.PRODUCTOS;
+} else {
+  // Esto convierte texto "TRUE" o "FALSE" (de Google Sheets) a booleano
+  BOT.PRODUCTOS = (String(bot.PRODUCTOS).trim().toLowerCase() === "true");
+}
+console.log('🚦 [ActualizarBot] BOT.PRODUCTOS actualizado a:', BOT.PRODUCTOS);
+
 
       console.table(BOT)
       return console.log('✅ INFORMACION DE BOT CARGADA 🤖')
