@@ -138,6 +138,9 @@ export async function ActualizarBot() {
       // 🧩 Configuración dinámica del nombre de hoja de productos
       BOT.PAG_PRODUCTOS = bot.PAG_PRODUCTOS || 'PRODUCTOS'
 
+      // ✅ CARGA DEL FLAG DE PRODUCTOS
+      BOT.PRODUCTOS = (typeof bot.PRODUCTOS === "boolean") ? bot.PRODUCTOS : (String(bot.PRODUCTOS).toLowerCase() === "true");
+
       console.table(BOT)
       return console.log('✅ INFORMACION DE BOT CARGADA 🤖')
     }
