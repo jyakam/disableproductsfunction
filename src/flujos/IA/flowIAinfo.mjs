@@ -38,227 +38,229 @@ export function extraerNombreProductoDeVision(texto) {
 
 export const flowIAinfo = addKeyword(EVENTS.WELCOME)
   .addAction(async (ctx, tools) => {
-    const { flowDynamic, endFlow, gotoFlow, provider, state } = tools
-    const phone = ctx.from.split('@')[0]
-    console.log('📩 [IAINFO] Mensaje recibido de:', phone)
-    console.log(`🔍 [IAINFO] Estado inicial de la caché: ${getCacheContactos().length} contactos`)
+  const { flowDynamic, endFlow, gotoFlow, provider, state } = tools
+  const phone = ctx.from.split('@')[0]
+  console.log('📩 [IAINFO] Mensaje recibido de:', phone)
+  console.log(`🔍 [IAINFO] Estado inicial de la caché: ${getCacheContactos().length} contactos`)
 
-    // 🔒 Chequeo de flag PRODUCTOS: si está desactivado, saltar toda la lógica de productos
-    if (!BOT.PRODUCTOS) {
-      console.log('🛑 [IAINFO] Flag PRODUCTOS está en FALSE, saltando lógica de productos.')
-      // Puedes dejar que la IA responda con base de conocimiento o seguir flujo normal sin productos
-      const res = await EnviarIA(ctx.body, ENUNGUIONES.INFO, {
-        ctx, flowDynamic, endFlow, gotoFlow, provider, state, promptExtra: ''
-      }, { esClienteNuevo: false, contacto: {} })
-      await Responder(res, ctx, flowDynamic, state)
-      return
-    }
+  // ------ BLOQUE DE CONTACTOS: SIEMPRE SE EJECUTA ------
+  let contacto = getContactoByTelefono(phone)
+  if (!contacto) {
+    console.log(`🔄 [IAINFO] Contacto no encontrado, intentando recargar caché`)
+    await cargarContactosDesdeAppSheet()
+    contacto = getContactoByTelefono(phone)
+    console.log('🔍 [DEBUG] Contacto después de recargar caché:', contacto)
+    console.log(`🔍 [IAINFO] Contacto tras recargar caché:`, contacto)
+  }
 
-    let contacto = getContactoByTelefono(phone)
-    if (!contacto) {
-      console.log(`🔄 [IAINFO] Contacto no encontrado, intentando recargar caché`)
-      await cargarContactosDesdeAppSheet()
+  if (!contacto) {
+    console.log(`🆕 [IAINFO] Creando contacto nuevo para: ${phone}`)
+    try {
+      await ActualizarContacto(phone, { NOMBRE: 'Sin Nombre', RESP_BOT: 'Sí', ETIQUETA: 'Nuevo' })
       contacto = getContactoByTelefono(phone)
-      console.log('🔍 [DEBUG] Contacto después de recargar caché:', contacto); // Añadido
-      console.log(`🔍 [IAINFO] Contacto tras recargar caché:`, contacto)
-    }
-
-    if (!contacto) {
-      console.log(`🆕 [IAINFO] Creando contacto nuevo para: ${phone}`)
-      try {
-        await ActualizarContacto(phone, { NOMBRE: 'Sin Nombre', RESP_BOT: 'Sí', ETIQUETA: 'Nuevo' })
+      console.log(`🔍 [IAINFO] Contacto tras ActualizarContacto:`, contacto)
+      if (!contacto) {
+        console.warn(`⚠️ [IAINFO] Contacto ${phone} no encontrado, creando localmente`)
+        const contactoLocal = {
+          TELEFONO: phone,
+          NOMBRE: 'Sin Nombre',
+          RESP_BOT: 'Sí',
+          ETIQUETA: 'Nuevo',
+          FECHA_PRIMER_CONTACTO: new Date().toLocaleDateString('es-CO'),
+          FECHA_ULTIMO_CONTACTO: new Date().toLocaleDateString('es-CO')
+        }
+        actualizarContactoEnCache(contactoLocal)
         contacto = getContactoByTelefono(phone)
-        console.log(`🔍 [IAINFO] Contacto tras ActualizarContacto:`, contacto)
-        if (!contacto) {
-          console.warn(`⚠️ [IAINFO] Contacto ${phone} no encontrado, creando localmente`)
-          const contactoLocal = {
-            TELEFONO: phone,
-            NOMBRE: 'Sin Nombre',
-            RESP_BOT: 'Sí',
-            ETIQUETA: 'Nuevo',
-            FECHA_PRIMER_CONTACTO: new Date().toLocaleDateString('es-CO'),
-            FECHA_ULTIMO_CONTACTO: new Date().toLocaleDateString('es-CO')
-          }
-          actualizarContactoEnCache(contactoLocal)
-          contacto = getContactoByTelefono(phone)
-          console.log(`🔍 [IAINFO] Contacto tras creación local:`, contacto)
-        }
-        if (!contacto) {
-          console.error(`❌ [IAINFO] Contacto ${phone} no creado, usando fallback`)
-          contacto = {
-            TELEFONO: phone,
-            NOMBRE: 'Sin Nombre',
-            RESP_BOT: 'Sí',
-            ETIQUETA: 'Nuevo'
-          }
-        }
-        console.log('👤 [IAINFO] Contacto nuevo registrado:', phone)
-      } catch (error) {
-        console.error(`❌ [IAINFO] Error al crear contacto ${phone}:`, error.message, error.stack)
+        console.log(`🔍 [IAINFO] Contacto tras creación local:`, contacto)
+      }
+      if (!contacto) {
+        console.error(`❌ [IAINFO] Contacto ${phone} no creado, usando fallback`)
         contacto = {
           TELEFONO: phone,
           NOMBRE: 'Sin Nombre',
           RESP_BOT: 'Sí',
           ETIQUETA: 'Nuevo'
         }
-        console.log(`⚠️ [IAINFO] Usando contacto local para ${phone}`)
       }
+      console.log('👤 [IAINFO] Contacto nuevo registrado:', phone)
+    } catch (error) {
+      console.error(`❌ [IAINFO] Error al crear contacto ${phone}:`, error.message, error.stack)
+      contacto = {
+        TELEFONO: phone,
+        NOMBRE: 'Sin Nombre',
+        RESP_BOT: 'Sí',
+        ETIQUETA: 'Nuevo'
+      }
+      console.log(`⚠️ [IAINFO] Usando contacto local para ${phone}`)
+    }
+  }
+
+  if (contacto) await ActualizarFechasContacto(contacto, phone)
+
+  // ------ BLOQUE DE PRODUCTOS: SOLO SI ESTÁ ACTIVO ------
+  if (!BOT.PRODUCTOS) {
+    console.log('🛑 [IAINFO] Flag PRODUCTOS está en FALSE, saltando lógica de productos.')
+    // Aquí la IA responde SIN lógica de productos pero contactos sí funcionan
+    const res = await EnviarIA(ctx.body, ENUNGUIONES.INFO, {
+      ctx, flowDynamic, endFlow, gotoFlow, provider, state, promptExtra: ''
+    }, { esClienteNuevo: !contacto || contacto.NOMBRE === 'Sin Nombre', contacto: contacto || {} })
+    await Responder(res, ctx, flowDynamic, state)
+    return
+  }
+
+  // --- Desde aquí, solo corre si productos está activo ---
+  if (!state.get('_productosFull')?.length) {
+    await cargarProductosAlState(state)
+    await state.update({ __productosCargados: true })
+    console.log('📦 [IAINFO] Productos cargados en cache para:', phone)
+  }
+
+  await state.update({ productoDetectadoEnImagen: false, productoReconocidoPorIA: '' })
+
+  const detectar = await DetectarArchivos(ctx, state)
+
+  if (state.get('tipoMensaje') === 1) {
+    const imagenes = state.get('archivos')?.filter(item => item.tipo === 1)
+    let resultado = ''
+    if (imagenes?.length > 0) {
+      const fileBuffer = fs.readFileSync(imagenes[0].ruta)
+      resultado = await enviarImagenProductoOpenAI(fileBuffer)
+      resultado = extraerNombreProductoDeVision(resultado)
+    }
+    if (resultado && resultado !== '' && resultado !== 'No es un producto') {
+      await state.update({
+        productoDetectadoEnImagen: true,
+        productoReconocidoPorIA: resultado
+      })
+      console.log(`🖼️ [IAINFO] Producto detectado en imagen: ${resultado}`)
+    }
+  }
+
+  AgruparMensaje(detectar, async (txt) => {
+    // Guardar mensaje del cliente en el historial
+    actualizarHistorialConversacion(txt, 'cliente', state);
+    Escribiendo(ctx)
+    console.log('🧾 [IAINFO] Texto agrupado final del usuario:', txt)
+
+    const productos = await obtenerProductosCorrectos(txt, state)
+    const promptExtra = productos.length ? generarContextoProductosIA(productos, state) : ''
+
+    if (productos.length) {
+      await state.update({ productosUltimaSugerencia: productos })
+      console.log(`📦 [IAINFO] ${productos.length} productos encontrados y asociados al mensaje.`)
     }
 
-    if (contacto) await ActualizarFechasContacto(contacto, phone)
-
-    if (!state.get('_productosFull')?.length) {
-      await cargarProductosAlState(state)
-      await state.update({ __productosCargados: true })
-      console.log('📦 [IAINFO] Productos cargados en cache para:', phone)
+    const estado = {
+      esClienteNuevo: !contacto || contacto.NOMBRE === 'Sin Nombre',
+      contacto: contacto || {}
     }
+
+    const res = await EnviarIA(txt, ENUNGUIONES.INFO, {
+      ctx, flowDynamic, endFlow, gotoFlow, provider, state, promptExtra
+    }, estado)
+
+    console.log('📥 [IAINFO] Respuesta completa recibida de IA:', res?.respuesta)
+
+    await manejarRespuestaIA(res, ctx, flowDynamic, gotoFlow, state, txt)
 
     await state.update({ productoDetectadoEnImagen: false, productoReconocidoPorIA: '' })
-
-    const detectar = await DetectarArchivos(ctx, state)
-
-    if (state.get('tipoMensaje') === 1) {
-      const imagenes = state.get('archivos')?.filter(item => item.tipo === 1)
-      let resultado = ''
-      if (imagenes?.length > 0) {
-        const fileBuffer = fs.readFileSync(imagenes[0].ruta)
-        resultado = await enviarImagenProductoOpenAI(fileBuffer)
-        resultado = extraerNombreProductoDeVision(resultado)
-      }
-      if (resultado && resultado !== '' && resultado !== 'No es un producto') {
-        await state.update({
-          productoDetectadoEnImagen: true,
-          productoReconocidoPorIA: resultado
-        })
-        console.log(`🖼️ [IAINFO] Producto detectado en imagen: ${resultado}`)
-      }
-    }
-
-    AgruparMensaje(detectar, async (txt) => {
-            // Guardar mensaje del cliente en el historial
-      actualizarHistorialConversacion(txt, 'cliente', state);
-      Escribiendo(ctx)
-      console.log('🧾 [IAINFO] Texto agrupado final del usuario:', txt)
-
-      const productos = await obtenerProductosCorrectos(txt, state)
-      const promptExtra = productos.length ? generarContextoProductosIA(productos, state) : ''
-
-      if (productos.length) {
-        await state.update({ productosUltimaSugerencia: productos })
-        console.log(`📦 [IAINFO] ${productos.length} productos encontrados y asociados al mensaje.`)
-      }
-
-      const estado = {
-        esClienteNuevo: !contacto || contacto.NOMBRE === 'Sin Nombre',
-        contacto: contacto || {}
-      }
-
-      const res = await EnviarIA(txt, ENUNGUIONES.INFO, {
-        ctx, flowDynamic, endFlow, gotoFlow, provider, state, promptExtra
-      }, estado)
-
-      console.log('📥 [IAINFO] Respuesta completa recibida de IA:', res?.respuesta)
-
-            await manejarRespuestaIA(res, ctx, flowDynamic, gotoFlow, state, txt)
-
-      await state.update({ productoDetectadoEnImagen: false, productoReconocidoPorIA: '' })
-    })
   })
+})
 
   .addAction({ capture: true }, async (ctx, tools) => {
-    const { flowDynamic, endFlow, gotoFlow, provider, state } = tools
-    const phone = ctx.from.split('@')[0]
-    const message = ctx.body.trim()
+  const { flowDynamic, endFlow, gotoFlow, provider, state } = tools
+  const phone = ctx.from.split('@')[0]
+  const message = ctx.body.trim()
+  let contacto = getContactoByTelefono(phone)
+  const datos = {}
 
-    // 🔒 Chequeo de flag PRODUCTOS: si está desactivado, saltar toda la lógica de productos
-    if (!BOT.PRODUCTOS) {
-      console.log('🛑 [IAINFO][capture] Flag PRODUCTOS está en FALSE, saltando lógica de productos.')
-      const res = await EnviarIA(message, ENUNGUIONES.INFO, {
-        ctx, flowDynamic, endFlow, gotoFlow, provider, state, promptExtra: ''
-      }, { esClienteNuevo: false, contacto: {} })
-      await Responder(res, ctx, flowDynamic, state)
-      return tools.fallBack()
+  // ------ BLOQUE DE CONTACTOS: SIEMPRE SE EJECUTA ------
+  await state.update({ productoDetectadoEnImagen: false, productoReconocidoPorIA: '' })
+
+  if (/me llamo|mi nombre es/i.test(message)) {
+    const nombre = message.split(/me llamo|mi nombre es/i)[1]?.trim()
+    if (nombre && !/\d/.test(nombre)) datos.nombre = nombre
+  }
+
+  const email = message.match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i)
+  if (email) datos.email = email[0]
+
+  if (contacto) await ActualizarFechasContacto(contacto, phone)
+
+  // ------ BLOQUE DE PRODUCTOS: SOLO SI ESTÁ ACTIVO ------
+  if (!BOT.PRODUCTOS) {
+    console.log('🛑 [IAINFO][capture] Flag PRODUCTOS está en FALSE, saltando lógica de productos.')
+    const res = await EnviarIA(message, ENUNGUIONES.INFO, {
+      ctx, flowDynamic, endFlow, gotoFlow, provider, state, promptExtra: ''
+    }, { esClienteNuevo: !contacto || contacto.NOMBRE === 'Sin Nombre', contacto: contacto || {} })
+    await Responder(res, ctx, flowDynamic, state)
+    return tools.fallBack()
+  }
+
+  if (!state.get('_productosFull')?.length) {
+    await cargarProductosAlState(state)
+    await state.update({ __productosCargados: true })
+  }
+
+  const detectar = await DetectarArchivos(ctx, state)
+
+  if (state.get('tipoMensaje') === 1) {
+    const imagenes = state.get('archivos')?.filter(item => item.tipo === 1)
+    let resultado = ''
+    if (imagenes?.length > 0) {
+      const fileBuffer = fs.readFileSync(imagenes[0].ruta)
+      resultado = await enviarImagenProductoOpenAI(fileBuffer)
+      resultado = extraerNombreProductoDeVision(resultado)
+    }
+    if (resultado && resultado !== '' && resultado !== 'No es un producto') {
+      await state.update({
+        productoDetectadoEnImagen: true,
+        productoReconocidoPorIA: resultado
+      })
+      console.log(`🖼️ [IAINFO] Producto detectado en imagen: ${resultado}`)
+    }
+  }
+
+  AgruparMensaje(detectar, async (txt) => {
+    // Guardar mensaje del cliente en el historial
+    actualizarHistorialConversacion(txt, 'cliente', state);
+    if (ComprobrarListaNegra(ctx) || !BOT.ESTADO) return gotoFlow(idleFlow)
+    reset(ctx, gotoFlow, BOT.IDLE_TIME * 60)
+    Escribiendo(ctx)
+
+    console.log('✏️ [IAINFO] Mensaje capturado en continuación de conversación:', txt)
+
+    const productos = await obtenerProductosCorrectos(txt, state)
+    const promptExtra = productos.length ? generarContextoProductosIA(productos, state) : ''
+
+    if (productos.length) {
+      await state.update({ productosUltimaSugerencia: productos })
     }
 
-    let contacto = getContactoByTelefono(phone)
-    const datos = {}
+    const estado = {
+      esClienteNuevo: !contacto || contacto.NOMBRE === 'Sin Nombre',
+      contacto: { ...contacto, ...datos } || {}
+    }
+
+    const res = await EnviarIA(txt, ENUNGUIONES.INFO, {
+      ctx, flowDynamic, endFlow, gotoFlow, provider, state, promptExtra
+    }, estado)
+
+    const { esConsultaProductos } = await obtenerIntencionConsulta(txt, state.get('ultimaConsulta') || '', state)
+    if (!esConsultaProductos) {
+      const esDatosContacto = await detectarIntencionContactoIA(txt)
+      if (esDatosContacto) {
+        console.log("🛡️ [FLOWIAINFO] Se va a actualizar contacto. Contacto en cache:", contacto)
+        await verificarYActualizarContactoSiEsNecesario(txt, phone, contacto, datos)
+      }
+    }
+    await manejarRespuestaIA(res, ctx, flowDynamic, gotoFlow, state, txt)
 
     await state.update({ productoDetectadoEnImagen: false, productoReconocidoPorIA: '' })
-
-    if (/me llamo|mi nombre es/i.test(message)) {
-      const nombre = message.split(/me llamo|mi nombre es/i)[1]?.trim()
-      if (nombre && !/\d/.test(nombre)) datos.nombre = nombre
-    }
-
-    const email = message.match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i)
-    if (email) datos.email = email[0]
-
-    if (contacto) await ActualizarFechasContacto(contacto, phone)
-
-    if (!state.get('_productosFull')?.length) {
-      await cargarProductosAlState(state)
-      await state.update({ __productosCargados: true })
-    }
-
-    const detectar = await DetectarArchivos(ctx, state)
-
-    if (state.get('tipoMensaje') === 1) {
-      const imagenes = state.get('archivos')?.filter(item => item.tipo === 1)
-      let resultado = ''
-      if (imagenes?.length > 0) {
-        const fileBuffer = fs.readFileSync(imagenes[0].ruta)
-        resultado = await enviarImagenProductoOpenAI(fileBuffer)
-        resultado = extraerNombreProductoDeVision(resultado)
-      }
-      if (resultado && resultado !== '' && resultado !== 'No es un producto') {
-        await state.update({
-          productoDetectadoEnImagen: true,
-          productoReconocidoPorIA: resultado
-        })
-        console.log(`🖼️ [IAINFO] Producto detectado en imagen: ${resultado}`)
-      }
-    }
-
-    AgruparMensaje(detectar, async (txt) => {
-            // Guardar mensaje del cliente en el historial
-      actualizarHistorialConversacion(txt, 'cliente', state);
-      if (ComprobrarListaNegra(ctx) || !BOT.ESTADO) return gotoFlow(idleFlow)
-      reset(ctx, gotoFlow, BOT.IDLE_TIME * 60)
-      Escribiendo(ctx)
-
-      console.log('✏️ [IAINFO] Mensaje capturado en continuación de conversación:', txt)
-
-      const productos = await obtenerProductosCorrectos(txt, state)
-      const promptExtra = productos.length ? generarContextoProductosIA(productos, state) : ''
-
-      if (productos.length) {
-        await state.update({ productosUltimaSugerencia: productos })
-      }
-
-      const estado = {
-        esClienteNuevo: !contacto || contacto.NOMBRE === 'Sin Nombre',
-        contacto: { ...contacto, ...datos } || {}
-      }
-
-      const res = await EnviarIA(txt, ENUNGUIONES.INFO, {
-        ctx, flowDynamic, endFlow, gotoFlow, provider, state, promptExtra
-      }, estado)
-
-      const { esConsultaProductos } = await obtenerIntencionConsulta(txt, state.get('ultimaConsulta') || '', state)
-      if (!esConsultaProductos) {
-        const esDatosContacto = await detectarIntencionContactoIA(txt)
-        if (esDatosContacto) {
-          console.log("🛡️ [FLOWIAINFO] Se va a actualizar contacto. Contacto en cache:", contacto)
-          await verificarYActualizarContactoSiEsNecesario(txt, phone, contacto, datos)
-        }
-      }
-           await manejarRespuestaIA(res, ctx, flowDynamic, gotoFlow, state, txt)
-
-      await state.update({ productoDetectadoEnImagen: false, productoReconocidoPorIA: '' })
-    })
-
-    return tools.fallBack()
   })
+
+  return tools.fallBack()
+})
 
 async function manejarRespuestaIA(res, ctx, flowDynamic, gotoFlow, state, txt) {
   const respuestaIA = res.respuesta?.toLowerCase?.() || ''
