@@ -1,8 +1,11 @@
 // src/funciones/helpers/cacheProductos.mjs
-import { BOT } from '../../config/bot.mjs' // ← Añade esta línea arriba
+import { BOT } from '../../config/bot.mjs'
 import { obtenerTodosLosProductosAppSheet } from './leerProductosAppSheet.mjs'
 
 export async function cargarProductosAlState(state) {
+  // 👉 Aquí agregamos el log sugerido
+  console.log('🚦 [cacheProductos] BOT.PRODUCTOS al intentar cargar:', BOT.PRODUCTOS);
+
   // 🔒 Chequeo de flag PRODUCTOS: si está desactivado, no cargar productos
   if (!BOT.PRODUCTOS) {
     console.log('🛑 [cacheProductos] Flag PRODUCTOS está en FALSE, no se cargan productos.')
@@ -31,4 +34,3 @@ export async function cargarProductosAlState(state) {
 
   return productos
 }
-
