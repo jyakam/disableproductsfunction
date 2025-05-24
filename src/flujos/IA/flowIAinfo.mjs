@@ -97,7 +97,7 @@ export const flowIAinfo = addKeyword(EVENTS.WELCOME)
 
   if (contacto) await ActualizarFechasContacto(contacto, phone)
 
-  // ------ BLOQUE DE PRODUCTOS: SOLO SI ESTÁ ACTIVO ------
+  // ------ CHEQUEO DEL FLAG DE PRODUCTOS ------
   if (!BOT.PRODUCTOS) {
     console.log('🛑 [IAINFO] Flag PRODUCTOS está en FALSE, saltando lógica de productos.')
     // Aquí la IA responde SIN lógica de productos pero contactos sí funcionan
@@ -108,7 +108,7 @@ export const flowIAinfo = addKeyword(EVENTS.WELCOME)
     return
   }
 
-  // --- Desde aquí, solo corre si productos está activo ---
+  // ------ LÓGICA DE PRODUCTOS (SOLO SI EL FLAG ESTÁ EN TRUE) ------
   if (!state.get('_productosFull')?.length) {
     await cargarProductosAlState(state)
     await state.update({ __productosCargados: true })
@@ -174,20 +174,33 @@ export const flowIAinfo = addKeyword(EVENTS.WELCOME)
   let contacto = getContactoByTelefono(phone)
   const datos = {}
 
-  // ------ BLOQUE DE CONTACTOS: SIEMPRE SE EJECUTA ------
+  // ------ BLOQUE DE CONTACTOS: TODO ANTES DEL FLAG ------
   await state.update({ productoDetectadoEnImagen: false, productoReconocidoPorIA: '' })
 
+  // Detecta y guarda nombre si está presente
   if (/me llamo|mi nombre es/i.test(message)) {
     const nombre = message.split(/me llamo|mi nombre es/i)[1]?.trim()
     if (nombre && !/\d/.test(nombre)) datos.nombre = nombre
   }
 
+  // Detecta y guarda email si está presente
   const email = message.match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i)
   if (email) datos.email = email[0]
 
+  // ACTUALIZA el contacto con esos datos si hay alguno nuevo
+  if (contacto && (datos.nombre || datos.email)) {
+    await ActualizarContacto(phone, {
+      ...contacto,
+      ...(datos.nombre ? { NOMBRE: datos.nombre } : {}),
+      ...(datos.email ? { EMAIL: datos.email } : {})
+    })
+    contacto = getContactoByTelefono(phone)
+  }
+
+  // Actualiza fechas de contacto SIEMPRE
   if (contacto) await ActualizarFechasContacto(contacto, phone)
 
-  // ------ BLOQUE DE PRODUCTOS: SOLO SI ESTÁ ACTIVO ------
+  // ------ CHEQUEO DEL FLAG DE PRODUCTOS ------
   if (!BOT.PRODUCTOS) {
     console.log('🛑 [IAINFO][capture] Flag PRODUCTOS está en FALSE, saltando lógica de productos.')
     const res = await EnviarIA(message, ENUNGUIONES.INFO, {
@@ -197,6 +210,7 @@ export const flowIAinfo = addKeyword(EVENTS.WELCOME)
     return tools.fallBack()
   }
 
+  // ------ DESDE AQUÍ SOLO CORRE SI HAY PRODUCTOS ACTIVOS ------
   if (!state.get('_productosFull')?.length) {
     await cargarProductosAlState(state)
     await state.update({ __productosCargados: true })
