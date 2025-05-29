@@ -25,7 +25,8 @@ export async function Notificar(tipo, datos) {
   //ss AYUDA
   if (tipo === ENUM_NOTI.AYUDA && NOTIFICACIONES.AYUDA) {
     for (let i = 0; i < NOTIFICACIONES.DEST_AYUDA.length; i++) {
-      await EnviarMensaje(NOTIFICACIONES.DEST_AYUDA[i], { text: datos.msj })
+      await EnviarMensaje(NOTIFICACIONES.DEST_AYUDA[i], datos.msj)
+
       await Esperar(10)
     }
     console.log(`🔔 Notificacion de ayuda enviada a los contactos  👤 ${NOTIFICACIONES.DEST_AYUDA.length}`)
@@ -33,7 +34,7 @@ export async function Notificar(tipo, datos) {
   //ss ERROR
   else if (tipo === ENUM_NOTI.ERROR && NOTIFICACIONES.ERROR) {
     for (let i = 0; i < NOTIFICACIONES.DEST_ERROR.length; i++) {
-      await EnviarMensaje(NOTIFICACIONES.DEST_ERROR[i], { text: datos.msj })
+      await EnviarMensaje(NOTIFICACIONES.DEST_ERROR[i], datos.msj)
       await Esperar(10)
     }
     console.log(`🔔 Notificacion de error enviada a los contactos  👤 ${NOTIFICACIONES.DEST_ERROR.length}`)
